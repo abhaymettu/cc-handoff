@@ -165,8 +165,12 @@ def open_in_claude_code(
     handoff.parent.mkdir(parents=True, exist_ok=True)
     handoff.write_text(brief, encoding="utf-8")
 
+    kickoff = (
+        f"Read {handoff.relative_to(prof.path)} and carry out what it asks. "
+        "It was written by a Claude Desktop chat handing this work to you."
+    )
     try:
-        name, argv = terminals.spawn(prof.path, [_cli()], terminal)
+        name, argv = terminals.spawn(prof.path, [_cli(), kickoff], terminal)
     except terminals.TerminalError as e:
         raise RuntimeError(f"wrote {handoff}, but could not open a terminal: {e}") from e
 
