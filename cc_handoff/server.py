@@ -12,6 +12,7 @@ except ImportError:  # pragma: no cover
     from mcp.server.fastmcp import FastMCP as _Server  # mcp 1.x
 
 from . import terminals
+from . import __version__
 from .config import ConfigError, Profile, load, resolve
 
 CLI = os.environ.get("CC_HANDOFF_CLI", "claude")
@@ -19,6 +20,7 @@ TIMEOUT = int(os.environ.get("CC_HANDOFF_TIMEOUT", "600"))
 
 server = _Server(
     "cc-handoff",
+    version=__version__,
     instructions=(
         "Routes work from this chat into Claude Code. Every tool runs inside a named "
         "profile (a directory with its own CLAUDE.md). Call list_profiles first if the "
