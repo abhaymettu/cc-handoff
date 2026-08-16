@@ -72,13 +72,16 @@ def _argv(name: str, cwd: Path, command: list[str]) -> list[str]:
     exe = shutil.which(name)
 
     if name == "ghostty":
+        # --window-save-state=never: launching the bundle binary starts a fresh
+        # instance, and without this each one restores every saved tab.
+        flags = ["--window-save-state=never", f"--working-directory={d}", "-e"]
         if exe:
-            return [exe, f"--working-directory={d}", "-e", *command]
+            return [exe, *flags, *command]
         # Ghostty ships no CLI when installed as a bundle; go through the binary
         # inside the app rather than `open -na`, which drops argv after -e.
         inner = Path(MAC_APPS["ghostty"]) / "Contents" / "MacOS" / "ghostty"
         if inner.is_file():
-            return [str(inner), f"--working-directory={d}", "-e", *command]
+            return [str(inner), *flags, *command]
         raise TerminalError("Ghostty found but no runnable binary inside the bundle.")
 
     if name == "kitty":
@@ -117,6 +120,8 @@ def spawn(cwd: Path, command: list[str], terminal: str | None = None) -> tuple[s
         raise TerminalError(f"{name} is not installed. Installed: {', '.join(installed()) or 'none'}")
 
     argv = _argv(name, cwd, command)
+    if os.environ.get("CC_HANDOFF_DRY_RUN"):
+        return name, argv
     try:
         subprocess.Popen(
             argv,

@@ -29,7 +29,7 @@ def main() -> int:
         f"throwaway = {json.dumps(str(profile_dir))}\n"
     )
 
-    env = {**os.environ, "CC_HANDOFF_CONFIG": str(cfg), "CC_HANDOFF_TERMINAL": "ghostty"}
+    env = {**os.environ, "CC_HANDOFF_CONFIG": str(cfg), "CC_HANDOFF_TERMINAL": "ghostty", "CC_HANDOFF_DRY_RUN": "1"}
     proc = subprocess.Popen(
         [sys.executable, "-m", "cc_handoff"],
         cwd=REPO, env=env, text=True, bufsize=1,

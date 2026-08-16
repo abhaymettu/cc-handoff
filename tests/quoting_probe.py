@@ -43,6 +43,7 @@ def main() -> int:
         "CC_HANDOFF_CONFIG": str(cfg),
         "CC_HANDOFF_CLI": "echo",
         "CC_HANDOFF_TERMINAL": "ghostty",
+        "CC_HANDOFF_DRY_RUN": "1",
     }
 
     proc = subprocess.Popen(
