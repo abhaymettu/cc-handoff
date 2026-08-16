@@ -69,8 +69,14 @@ run. If one fails, that is a bug worth reporting.
 Selection order: `$CC_HANDOFF_TERMINAL`, then whatever is running (`TERM_PROGRAM`), then
 whatever is installed. macOS only for now.
 
-Ghostty is launched through `Ghostty.app/Contents/MacOS/ghostty` rather than `open -na`,
-because `open -na` discards argv after `-e`.
+Ghostty is launched with `open -na Ghostty.app --args ... -e <command>`, which is what
+Ghostty's own help tells you to do: running the bundle binary directly is unsupported on
+macOS, starts a fresh instance per call, restores every saved tab, and makes macOS
+re-prompt for permission to exec the CLI each time.
+
+`--window-save-state=never` is passed so a handoff window opens empty rather than
+restoring an old session. Reusing an already-running instance is not possible — plain
+`open -a` accepts `--args` and silently ignores them.
 
 ## Quoting
 

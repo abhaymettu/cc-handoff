@@ -72,17 +72,15 @@ def _argv(name: str, cwd: Path, command: list[str]) -> list[str]:
     exe = shutil.which(name)
 
     if name == "ghostty":
-        # --window-save-state=never: launching the bundle binary starts a fresh
-        # instance, and without this each one restores every saved tab.
-        flags = ["--window-save-state=never", f"--working-directory={d}", "-e"]
-        if exe:
-            return [exe, *flags, *command]
-        # Ghostty ships no CLI when installed as a bundle; go through the binary
-        # inside the app rather than `open -na`, which drops argv after -e.
-        inner = Path(MAC_APPS["ghostty"]) / "Contents" / "MacOS" / "ghostty"
-        if inner.is_file():
-            return [str(inner), *flags, *command]
-        raise TerminalError("Ghostty found but no runnable binary inside the bundle.")
+        # Ghostty's own help: "On macOS, launching the terminal emulator from the
+        # CLI is not supported ... use open -na Ghostty.app". Running the bundle
+        # binary directly starts a whole new instance per call, which restores
+        # every saved tab and re-triggers macOS exec prompts.
+        # --window-save-state=never keeps a fresh window fresh.
+        return [
+            "open", "-na", MAC_APPS["ghostty"], "--args",
+            "--window-save-state=never", f"--working-directory={d}", "-e", *command,
+        ]
 
     if name == "kitty":
         return [exe or "kitty", "--directory", d, "--", *command]
