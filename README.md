@@ -32,11 +32,19 @@ directory that is not in your config cannot be touched.
 
 ## Install
 
+Paste this repo's URL to your coding agent and say "install this". It will read
+[AGENTS.md](AGENTS.md), work out your profiles, show them to you, and ask before writing
+anything.
+
+By hand:
+
 ```sh
 git clone https://github.com/abhaymettu/cc-handoff
 cd cc-handoff
 python3 -m venv .venv && .venv/bin/pip install -e .
+.venv/bin/python -m cc_handoff setup --dry-run    # see the plan first
 .venv/bin/python -m cc_handoff setup --default scratch
+.venv/bin/python -m cc_handoff doctor             # confirm it works
 ```
 
 `setup` walks a few roots for `CLAUDE.md` files, detects which terminal you use and pins
@@ -58,7 +66,11 @@ brain   = "/Users/you/Documents/Brain"
 scratch = "/Users/you/scratch"
 ```
 
-Other commands: `cc_handoff profiles`, `cc_handoff terminals`.
+Other commands: `cc_handoff profiles`, `cc_handoff terminals`, `cc_handoff doctor`.
+
+`setup --dry-run` prints the plan and writes nothing. Add `--json` to either `setup` or
+`doctor` for machine-readable output, which is what an agent driving the install uses.
+`doctor` exits non-zero when something fatal is wrong.
 
 ## Tools
 
