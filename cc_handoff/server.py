@@ -6,10 +6,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
-try:
-    from mcp.server import MCPServer as _Server  # mcp >= 2.0
-except ImportError:  # pragma: no cover
-    from mcp.server.fastmcp import FastMCP as _Server  # mcp 1.x
+from mcp.server import MCPServer as _Server
 
 from . import terminals
 from . import __version__

@@ -162,7 +162,16 @@ def _checks() -> list[dict]:
         import mcp  # noqa: F401
         add("mcp package", True, f"version {md.version('mcp')}")
     except Exception as e:
-        add("mcp package", False, f"{e}. Install with: pip install mcp")
+        add("mcp package", False, f"{e}. Install with: pip install 'mcp>=2'")
+
+    # Importing the package is not proof it can run. Build the server for real:
+    # this is what catches an mcp version whose constructor signature differs.
+    try:
+        from .server import server as _s
+        add("server builds", True, f"{len(_s._tool_manager.list_tools())} tools registered"
+            if hasattr(_s, "_tool_manager") else "constructed")
+    except Exception as e:
+        add("server builds", False, f"{type(e).__name__}: {e}")
 
     cli = shutil.which(os.environ.get("CC_HANDOFF_CLI", "claude"))
     if cli:
