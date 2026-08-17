@@ -1,7 +1,10 @@
-# cc-handoff
+# claude-desktop-to-code
 
 An MCP server that routes work from a Claude Desktop chat into Claude Code, either
 headlessly, or by opening a terminal you can take over.
+
+Three names, one project: the repo is `claude-desktop-to-code`, the command is
+`cc-handoff`, and the Python module is `cc_handoff`.
 
 The point is the handoff. You ask a question in chat, it runs headlessly in the right
 directory, and when you want to drive it yourself the *same session* opens in a real
@@ -39,8 +42,8 @@ anything.
 By hand:
 
 ```sh
-git clone https://github.com/abhaymettu/cc-handoff
-cd cc-handoff
+git clone https://github.com/abhaymettu/claude-desktop-to-code
+cd claude-desktop-to-code
 python3 -m venv .venv && .venv/bin/pip install -e .
 .venv/bin/python -m cc_handoff setup --dry-run    # see the plan first
 .venv/bin/python -m cc_handoff setup --default <one of your profiles>

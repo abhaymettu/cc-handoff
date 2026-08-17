@@ -219,12 +219,19 @@ def _checks() -> list[dict]:
             entry = None
             add("Claude Desktop", False, f"unreadable: {e}")
         if entry:
-            same = Path(entry.get("command", "")) == Path(sys.executable)
-            add("Claude Desktop", True,
-                "registered" + ("" if same else
-                                f", but points at {entry.get('command')} not {sys.executable}"))
+            cmd = Path(entry.get("command", ""))
+            if cmd == Path(sys.executable):
+                add("Claude Desktop", True, "registered")
+            elif not cmd.exists():
+                # Desktop cannot launch what is not there. Usually a moved checkout.
+                add("Claude Desktop", False,
+                    f"registered against {cmd}, which no longer exists. "
+                    "Re-run setup from this checkout.")
+            else:
+                add("Claude Desktop", True,
+                    f"registered, but against {cmd} not {sys.executable}", fatal=False)
         elif desktop.is_file():
-            add("Claude Desktop", False, "not registered. Run: cc_handoff setup")
+            add("Claude Desktop", False, "not registered. Run: cc-handoff setup")
     return out
 
 

@@ -1,9 +1,12 @@
-# Installing cc-handoff
+# Installing claude-desktop-to-code
 
 You are an agent installing this for the person you are working with. Follow these steps
 in order. Stop and ask before step 5, which is the only step that writes anything.
 
 This installs a local MCP server for Claude Desktop. It is macOS only.
+
+The repo is `claude-desktop-to-code`; the installed command and Python module are
+both named `cc-handoff` / `cc_handoff`. That is expected, not a mistake.
 
 ## 1. Check the prerequisites
 
@@ -22,8 +25,8 @@ here will work without it.
 ## 2. Install
 
 ```sh
-git clone https://github.com/abhaymettu/cc-handoff
-cd cc-handoff
+git clone https://github.com/abhaymettu/claude-desktop-to-code
+cd claude-desktop-to-code
 python3 -m venv .venv
 .venv/bin/pip install -e .
 ```
