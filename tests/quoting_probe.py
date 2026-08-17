@@ -159,7 +159,9 @@ def applescript_escaping_holds() -> bool:
                 print(f"       got  {got!r}")
                 ok = False
                 continue
-            if "\n" in argv[2].split("do script ", 1)[-1].split("\nend tell")[0]:
+            # iTerm2 writes into a session, Terminal.app uses `do script`.
+            marker = "write text " if name == "iterm" else "do script "
+            if "\n" in argv[2].split(marker, 1)[-1].split("\nend tell")[0]:
                 print(f"  FAIL {name}: raw newline inside the script literal for {arg!r}")
                 ok = False
     # The escaper is shared by both recipes, so check it directly even when neither

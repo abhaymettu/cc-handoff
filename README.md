@@ -103,7 +103,7 @@ headless call can be continued into an unrestricted session, so do not treat
 |---|---|---|
 | Ghostty | tested | `open -na` |
 | Terminal.app | tested | AppleScript |
-| iTerm2 | untested | AppleScript |
+| iTerm2 | tested | AppleScript |
 | kitty | untested | needs its CLI |
 | WezTerm | untested | needs its CLI |
 | Alacritty | untested | needs its CLI |
@@ -113,6 +113,9 @@ fail unless you have installed it: kitty, WezTerm and Alacritty ship their comma
 line tool inside the .app bundle and do not put it on `PATH` on their own. cc-handoff
 looks on `PATH` first and then inside the bundle, and refuses to select a terminal it
 cannot actually launch, so the failure is an error message rather than a hang.
+
+cc-handoff looks for each .app in `/Applications` and `~/Applications`, since casks
+and manual installs land in either.
 
 Auto-selection prefers tested recipes. An untested one is only chosen if it is the
 terminal you are currently running in, or if nothing tested is installed.

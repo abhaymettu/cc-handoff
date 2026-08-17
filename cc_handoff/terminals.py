@@ -28,9 +28,9 @@ BUNDLE_BIN = {
 
 APPLESCRIPT = {"iterm", "terminal"}
 
-# Verified by hand on macOS 15 / Ghostty 1.x. The rest are written from each
+# Verified by hand on macOS 15 / Ghostty 1.x / iTerm2 3.x. The rest are written from each
 # emulator's documented flags but have not been run; see README.
-TESTED = {"ghostty", "terminal"}
+TESTED = {"ghostty", "terminal", "iterm"}
 
 
 class TerminalError(Exception):
@@ -49,21 +49,33 @@ def _osa_quote(s: str) -> str:
     return '"' + out + '"'
 
 
+def app_dir(name: str) -> Path | None:
+    """The .app bundle on disk. Homebrew casks and manual installs land in
+    ~/Applications just as often as /Applications, so look in both."""
+    p = MAC_APPS.get(name)
+    if not p:
+        return None
+    candidates = [Path(p)]
+    if p.startswith("/Applications/"):
+        candidates.append(Path.home() / "Applications" / Path(p).name)
+    return next((c for c in candidates if c.is_dir()), None)
+
+
 def launcher(name: str) -> str | None:
     """The executable that can actually start `name`, or None if there isn't one.
 
     An .app bundle on disk is not enough: kitty, WezTerm and Alacritty ship their
     CLI inside the bundle and do not put it on PATH.
     """
+    app = app_dir(name)
     if name in APPLESCRIPT:
-        app = MAC_APPS.get(name)
-        return "osascript" if app and Path(app).is_dir() else None
+        return "osascript" if app else None
     exe = shutil.which(name)
     if exe:
         return exe
-    app, rel = MAC_APPS.get(name), BUNDLE_BIN.get(name)
+    rel = BUNDLE_BIN.get(name)
     if app and rel:
-        inner = Path(app) / rel
+        inner = app / rel
         if inner.is_file():
             return str(inner)
     return None
@@ -150,7 +162,7 @@ def _argv(name: str, cwd: Path, command: list[str]) -> list[str]:
         # every saved tab and re-triggers macOS exec prompts.
         # --window-save-state=never keeps a fresh window fresh.
         return [
-            "open", "-na", MAC_APPS["ghostty"], "--args",
+            "open", "-na", str(app_dir("ghostty")), "--args",
             "--window-save-state=never", f"--working-directory={d}", "-e", *command,
         ]
 
@@ -167,13 +179,23 @@ def _argv(name: str, cwd: Path, command: list[str]) -> list[str]:
         # Both only take a shell string via AppleScript, so this is the one path
         # where quoting matters. shlex.quote every element, then escape for osascript.
         line = f"cd {shlex.quote(d)} && {shlex.join(command)}"
-        app = "iTerm" if name == "iterm" else "Terminal"
-        script = (
-            f'tell application {_osa_quote(app)}\n'
-            f"  activate\n"
-            f"  do script {_osa_quote(line)}\n"
-            f"end tell"
-        )
+        if name == "iterm":
+            # iTerm2 v3 has no top-level `do script`: you make a window, then
+            # write text into its session. The v2 `do script` form is a syntax error.
+            script = (
+                'tell application "iTerm"\n'
+                "  activate\n"
+                "  set w to (create window with default profile)\n"
+                f"  tell current session of w to write text {_osa_quote(line)}\n"
+                "end tell"
+            )
+        else:
+            script = (
+                'tell application "Terminal"\n'
+                "  activate\n"
+                f"  do script {_osa_quote(line)}\n"
+                "end tell"
+            )
         return ["osascript", "-e", script]
 
     raise TerminalError(f"unknown terminal {name!r}")
