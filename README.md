@@ -52,6 +52,18 @@ Other commands: `cc_handoff profiles`, `cc_handoff terminals`.
 
 `allow_edits` defaults to false and must be set deliberately.
 
+### Permissions do not survive the handoff
+
+`allow_edits` applies only to the headless run. `handoff_to_terminal` resumes that
+session with no permission flags, so once a window is open you are under ordinary
+interactive Claude Code rules and approve actions yourself.
+
+This is deliberate. A read-only headless answer becoming a read-only terminal would be
+the wrong default: you are at the keyboard now, and the interactive permission prompt is
+a better gate than a flag inherited from a chat message. But it does mean a restricted
+headless call can be continued into an unrestricted session, so do not treat
+`allow_edits=False` as a durable sandbox.
+
 ## Terminals
 
 | Terminal | Status |
