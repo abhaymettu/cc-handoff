@@ -270,15 +270,41 @@ def resolve(name: str | None, path: Path = CONFIG_PATH) -> Profile:
     return prof
 
 
+def desktop_path_env(cli: str | None = None) -> str:
+    """PATH for the server when Claude Desktop launches it.
+
+    launchd hands GUI apps a minimal PATH with no ~/.local/bin and no Homebrew, so a
+    `claude` that works in a terminal is invisible to the server unless its directory
+    is passed through explicitly.
+    """
+    parts: list[str] = []
+    found = shutil.which(cli or os.environ.get("CC_HANDOFF_CLI", "claude"))
+    if found:
+        # Not resolve(): the CLI is often a symlink into a version store that holds
+        # no file by that name, and PATH needs the directory holding the symlink.
+        parts.append(str(Path(found).parent))
+    for d in (
+        HOME / ".local" / "bin", Path("/opt/homebrew/bin"), Path("/usr/local/bin"),
+        Path("/usr/bin"), Path("/bin"), Path("/usr/sbin"), Path("/sbin"),
+    ):
+        if str(d) not in parts and d.is_dir():
+            parts.append(str(d))
+    return ":".join(parts)
+
+
 def register_desktop(python: Path | None = None, path: Path = DESKTOP_CONFIG) -> tuple[Path, Path | None]:
-    """Add cc-handoff to claude_desktop_config.json, backing up whatever is there."""
+    """Add cc-handoff to claude_desktop_config.json, keeping the first backup made."""
     python = Path(python or sys.executable)
     data: dict = {}
     backup: Path | None = None
 
     if path.is_file():
-        backup = path.with_suffix(path.suffix + ".cc-handoff.bak")
-        shutil.copy2(path, backup)
+        candidate = path.with_suffix(path.suffix + ".cc-handoff.bak")
+        # Back up once only. Overwriting would replace the pristine pre-cc-handoff
+        # config with a copy of one this already modified.
+        if not candidate.exists():
+            shutil.copy2(path, candidate)
+            backup = candidate
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
         except json.JSONDecodeError as e:
@@ -287,7 +313,11 @@ def register_desktop(python: Path | None = None, path: Path = DESKTOP_CONFIG) ->
             raise ConfigError(f"{path} is not a JSON object; left it alone.")
 
     servers = data.setdefault("mcpServers", {})
-    servers["cc-handoff"] = {"command": str(python), "args": ["-m", "cc_handoff"]}
+    servers["cc-handoff"] = {
+        "command": str(python),
+        "args": ["-m", "cc_handoff"],
+        "env": {"PATH": desktop_path_env()},
+    }
 
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
