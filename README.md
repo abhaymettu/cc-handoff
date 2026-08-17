@@ -1,6 +1,6 @@
 # cc-handoff
 
-An MCP server that routes work from a Claude Desktop chat into Claude Code — either
+An MCP server that routes work from a Claude Desktop chat into Claude Code, either
 headlessly, or by opening a terminal you can take over.
 
 The point is the handoff. You ask a question in chat, it runs headlessly in the right
@@ -27,7 +27,7 @@ one convention:
 Each layer degrades to the next, so a fresh install with no conventions at all still
 produces a sensible list. `--limit` caps how many are kept (12 by default).
 
-Every tool runs inside a named profile. There is no free-form path parameter — a
+Every tool runs inside a named profile. There is no free-form path parameter. A
 directory that is not in your config cannot be touched.
 
 ## Install
@@ -118,7 +118,7 @@ macOS, starts a fresh instance per call, restores every saved tab, and makes mac
 re-prompt for permission to exec the CLI each time.
 
 `--window-save-state=never` is passed so a handoff window opens empty rather than
-restoring an old session. Reusing an already-running instance is not possible — plain
+restoring an old session. Reusing an already-running instance is not possible. Plain
 `open -a` accepts `--args` and silently ignores them.
 
 ## Quoting
@@ -159,7 +159,7 @@ scratch.
 The closest existing thing is [steipete/claude-code-mcp](https://github.com/steipete/claude-code-mcp)
 (JavaScript, MIT), which wraps the Claude Code CLI in a single `claude_code` tool for
 one-shot delegation. If all you want is "let my MCP client run a Claude Code prompt",
-use that — it is mature and widely used.
+use that. It is mature and widely used.
 
 cc-handoff is aimed at a different problem, and differs in three ways that matter:
 
@@ -178,5 +178,5 @@ cross-platform.
 
 ## Requirements
 
-macOS, Python 3.10+, `mcp` (2.x or 1.x — the import is version-guarded), and the
+macOS, Python 3.10+, `mcp` (2.x or 1.x, the import is version-guarded), and the
 `claude` CLI on `PATH`.

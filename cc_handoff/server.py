@@ -165,9 +165,9 @@ def open_in_claude_code(
     Use for work the user should drive themselves. The brief is written verbatim;
     it is never passed through a shell.
 
-    If a session is already open in that profile, no second window is opened —
-    tell the user to switch to it and say "reread HANDOFF.md". Pass new_window
-    to open one anyway.
+    If a session is already open in that profile, no second window is opened. Tell
+    the user to switch to it and say "reread HANDOFF.md". Pass new_window to open
+    one anyway.
     """
     prof = _profile(profile)
     handoff = prof.path / ".claude" / "HANDOFF.md"
