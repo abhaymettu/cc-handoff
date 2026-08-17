@@ -16,6 +16,18 @@ MAC_APPS = {
     "terminal": "/System/Applications/Utilities/Terminal.app",
 }
 
+# Executable inside each .app bundle, for the emulators that do not put a CLI on
+# PATH unless the user symlinks one by hand. iTerm and Terminal need no binary:
+# they are driven through AppleScript.
+BUNDLE_BIN = {
+    "ghostty": "Contents/MacOS/ghostty",
+    "kitty": "Contents/MacOS/kitty",
+    "wezterm": "Contents/MacOS/wezterm",
+    "alacritty": "Contents/MacOS/alacritty",
+}
+
+APPLESCRIPT = {"iterm", "terminal"}
+
 # Verified by hand on macOS 15 / Ghostty 1.x. The rest are written from each
 # emulator's documented flags but have not been run; see README.
 TESTED = {"ghostty", "terminal"}
@@ -26,14 +38,39 @@ class TerminalError(Exception):
 
 
 def _osa_quote(s: str) -> str:
-    return '"' + s.replace("\\", "\\\\").replace('"', '\\"') + '"'
+    """Quote for an AppleScript string literal. A raw newline is a syntax error."""
+    out = (
+        s.replace("\\", "\\\\")
+        .replace('"', '\\"')
+        .replace("\n", "\\n")
+        .replace("\r", "\\r")
+        .replace("\t", "\\t")
+    )
+    return '"' + out + '"'
+
+
+def launcher(name: str) -> str | None:
+    """The executable that can actually start `name`, or None if there isn't one.
+
+    An .app bundle on disk is not enough: kitty, WezTerm and Alacritty ship their
+    CLI inside the bundle and do not put it on PATH.
+    """
+    if name in APPLESCRIPT:
+        app = MAC_APPS.get(name)
+        return "osascript" if app and Path(app).is_dir() else None
+    exe = shutil.which(name)
+    if exe:
+        return exe
+    app, rel = MAC_APPS.get(name), BUNDLE_BIN.get(name)
+    if app and rel:
+        inner = Path(app) / rel
+        if inner.is_file():
+            return str(inner)
+    return None
 
 
 def _app_installed(name: str) -> bool:
-    if shutil.which(name):
-        return True
-    app = MAC_APPS.get(name)
-    return bool(app and Path(app).is_dir())
+    return launcher(name) is not None
 
 
 def installed() -> list[str]:
@@ -58,7 +95,8 @@ def detect() -> str:
         if needle in running and _app_installed(name):
             return name
 
-    for name in ("ghostty", "kitty", "wezterm", "alacritty", "iterm", "terminal"):
+    # Tested recipes first. Never auto-select an untested one over a working one.
+    for name in ("ghostty", "terminal", "iterm", "kitty", "wezterm", "alacritty"):
         if _app_installed(name):
             return name
     raise TerminalError(
@@ -98,7 +136,12 @@ def sessions_in(cwd: Path, cli: str = "claude") -> list[int]:
 
 def _argv(name: str, cwd: Path, command: list[str]) -> list[str]:
     d = str(cwd)
-    exe = shutil.which(name)
+    exe = launcher(name)
+    if exe is None:
+        raise TerminalError(
+            f"{name} has no launchable binary. The .app may be present but its CLI is "
+            f"not on PATH and not at {MAC_APPS.get(name)}/{BUNDLE_BIN.get(name, '')}."
+        )
 
     if name == "ghostty":
         # Ghostty's own help: "On macOS, launching the terminal emulator from the
@@ -112,13 +155,13 @@ def _argv(name: str, cwd: Path, command: list[str]) -> list[str]:
         ]
 
     if name == "kitty":
-        return [exe or "kitty", "--directory", d, "--", *command]
+        return [exe, "--directory", d, "--", *command]
 
     if name == "wezterm":
-        return [exe or "wezterm", "start", "--cwd", d, "--", *command]
+        return [exe, "start", "--cwd", d, "--", *command]
 
     if name == "alacritty":
-        return [exe or "alacritty", "--working-directory", d, "-e", *command]
+        return [exe, "--working-directory", d, "-e", *command]
 
     if name in ("iterm", "terminal"):
         # Both only take a shell string via AppleScript, so this is the one path
