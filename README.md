@@ -25,9 +25,14 @@ python3 -m venv .venv && .venv/bin/pip install -e .
 .venv/bin/python -m cc_handoff setup --default scratch
 ```
 
-`setup` walks a few roots for `CLAUDE.md` files, writes `~/.config/cc-handoff/config.toml`,
-and registers itself in `claude_desktop_config.json` (backing up whatever was there).
-Restart Claude Desktop afterward.
+`setup` walks a few roots for `CLAUDE.md` files, detects which terminal you use and pins
+it, writes `~/.config/cc-handoff/config.toml`, and registers itself in
+`claude_desktop_config.json` (backing up whatever was there). Restart Claude Desktop
+afterward.
+
+Re-running `setup` never destroys a config you have edited: it keeps the profiles already
+in the file and only refreshes the terminal and default. Pass `--rescan` to look for new
+profiles, which adds but never drops.
 
 It over-collects on purpose. Open the toml and delete what you do not want:
 
@@ -78,8 +83,20 @@ headless call can be continued into an unrestricted session, so do not treat
 Untested recipes are written from each emulator's documented flags but have never been
 run. If one fails, that is a bug worth reporting.
 
-Selection order: `$CC_HANDOFF_TERMINAL`, then whatever is running (`TERM_PROGRAM`), then
-whatever is installed. macOS only for now.
+`setup` picks your terminal once and writes it to the config, so it is a decision you can
+see and edit rather than a guess made on every call. Selection order at runtime: the
+tool's `terminal` argument, then `terminal` in the config, then `$CC_HANDOFF_TERMINAL`,
+then whatever is running (`TERM_PROGRAM`), then whatever is installed. macOS only for now.
+
+### One window per profile
+
+`open_in_claude_code` checks whether a session is already running in that directory. If
+one is, it updates `HANDOFF.md` and tells you to switch to that window and say "reread
+.claude/HANDOFF.md" instead of stacking up another. Pass `new_window=true` to override.
+
+Tabs are not an option: `open -na` has to start a separate instance to pass `-e`, plain
+`open -a` ignores `--args`, Ghostty's `+new-window` action is Linux-only, and macOS
+native tabbing cannot merge windows across instances.
 
 Ghostty is launched with `open -na Ghostty.app --args ... -e <command>`, which is what
 Ghostty's own help tells you to do: running the bundle binary directly is unsupported on

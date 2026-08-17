@@ -67,6 +67,35 @@ def detect() -> str:
     )
 
 
+def sessions_in(cwd: Path, cli: str = "claude") -> list[int]:
+    """PIDs of agent sessions already running with `cwd` as their working directory."""
+    try:
+        pids = subprocess.run(
+            ["pgrep", "-x", Path(cli).name],
+            capture_output=True, text=True, timeout=5,
+        ).stdout.split()
+    except (OSError, subprocess.SubprocessError):
+        return []
+    if not pids:
+        return []
+
+    try:
+        out = subprocess.run(
+            ["lsof", "-a", "-d", "cwd", "-Fpn", "-p", ",".join(pids)],
+            capture_output=True, text=True, timeout=10,
+        ).stdout
+    except (OSError, subprocess.SubprocessError):
+        return []
+
+    target, found, pid = str(cwd.resolve()), [], None
+    for line in out.splitlines():
+        if line.startswith("p"):
+            pid = int(line[1:])
+        elif line.startswith("n") and pid is not None and line[1:] == target:
+            found.append(pid)
+    return found
+
+
 def _argv(name: str, cwd: Path, command: list[str]) -> list[str]:
     d = str(cwd)
     exe = shutil.which(name)

@@ -7,22 +7,54 @@ from . import config, terminals
 
 
 def _setup(args: argparse.Namespace) -> int:
-    profiles = config.discover()
-    if not profiles:
-        print("No directories with a CLAUDE.md found. Nothing to configure.", file=sys.stderr)
-        return 1
+    existing: dict[str, config.Profile] = {}
+    prev_default = None
+    if config.CONFIG_PATH.is_file():
+        try:
+            existing, prev_default = config.load()
+        except config.ConfigError as e:
+            print(f"Ignoring unreadable config: {e}", file=sys.stderr)
 
-    print(f"Found {len(profiles)} profile(s):")
-    for p in profiles:
-        print(f"  {p.name:26} {p.path}")
+    if existing and not args.rescan:
+        # A hand-pruned config is the point of the file. Never overwrite it.
+        profiles = sorted(existing.values(), key=lambda p: p.name)
+        print(f"Keeping the {len(profiles)} profile(s) already in {config.CONFIG_PATH}:")
+        for p in profiles:
+            print(f"  {p.name:26} {p.path}")
+        print("(pass --rescan to look for new ones)")
+    else:
+        found = config.discover()
+        if not found and not existing:
+            print("No directories with a CLAUDE.md found. Nothing to configure.",
+                  file=sys.stderr)
+            return 1
+        merged = {p.name: p for p in found}
+        merged.update(existing)  # anything you kept or renamed wins
+        profiles = sorted(merged.values(), key=lambda p: p.name)
+        added = [p.name for p in profiles if p.name not in existing]
+        print(f"{len(profiles)} profile(s), {len(added)} new:")
+        for p in profiles:
+            mark = "+" if p.name in added else " "
+            print(f"{mark} {p.name:26} {p.path}")
 
-    default = args.default
+    default = args.default or prev_default
     if default and default not in {p.name for p in profiles}:
-        print(f"\n--default {default!r} is not among the discovered profiles.", file=sys.stderr)
+        print(f"\ndefault_profile {default!r} is not among the profiles.", file=sys.stderr)
         return 1
 
-    path = config.write_config(profiles, default)
-    print(f"\nWrote {path}")
+    try:
+        term = args.terminal or terminals.detect()
+        if term not in terminals.MAC_APPS:
+            print(f"\nUnknown terminal {term!r}. One of: {', '.join(terminals.MAC_APPS)}",
+                  file=sys.stderr)
+            return 1
+    except terminals.TerminalError as e:
+        print(f"\n{e}", file=sys.stderr)
+        return 1
+
+    path = config.write_config(profiles, default, term)
+    print(f"\nTerminal: {term}" + ("" if term in terminals.TESTED else "  (untested recipe)"))
+    print(f"Wrote {path}")
     print("Prune or rename entries in that file before using it.")
 
     if args.no_register:
@@ -74,6 +106,9 @@ def main(argv: list[str] | None = None) -> int:
 
     s = sub.add_parser("setup", help="discover profiles and register with Claude Desktop")
     s.add_argument("--default", help="profile to use when none is named")
+    s.add_argument("--terminal", help="pin a terminal instead of detecting one")
+    s.add_argument("--rescan", action="store_true",
+                   help="look for new profiles; never drops ones you kept")
     s.add_argument("--no-register", action="store_true", help="write the config only")
     s.set_defaults(func=_setup)
 

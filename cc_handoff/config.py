@@ -123,10 +123,15 @@ def discover(roots: list[Path] | None = None, depth: int = SCAN_DEPTH) -> list[P
     return sorted(by_name.values(), key=lambda p: p.name)
 
 
-def render_config(profiles: list[Profile], default: str | None = None) -> str:
+def render_config(profiles: list[Profile], default: str | None = None,
+                  terminal: str | None = None) -> str:
     lines = ["# cc-handoff. Each profile is a directory with its own CLAUDE.md.", ""]
     if default:
-        lines += [f"default_profile = {json.dumps(default)}", ""]
+        lines.append(f"default_profile = {json.dumps(default)}")
+    if terminal:
+        lines.append(f"terminal = {json.dumps(terminal)}  # detected at setup")
+    if default or terminal:
+        lines.append("")
     lines.append("[profiles]")
     for p in profiles:
         suffix = f"  # {p.gist}" if p.gist else ""
@@ -135,10 +140,20 @@ def render_config(profiles: list[Profile], default: str | None = None) -> str:
 
 
 def write_config(profiles: list[Profile], default: str | None = None,
-                 path: Path = CONFIG_PATH) -> Path:
+                 terminal: str | None = None, path: Path = CONFIG_PATH) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(render_config(profiles, default), encoding="utf-8")
+    path.write_text(render_config(profiles, default, terminal), encoding="utf-8")
     return path
+
+
+def preferred_terminal(path: Path = CONFIG_PATH) -> str | None:
+    """The terminal pinned at setup, if any. $CC_HANDOFF_TERMINAL still wins."""
+    if not path.is_file():
+        return None
+    try:
+        return tomllib.loads(path.read_text(encoding="utf-8")).get("terminal")
+    except (OSError, tomllib.TOMLDecodeError):
+        return None
 
 
 def load(path: Path = CONFIG_PATH) -> tuple[dict[str, Profile], str | None]:

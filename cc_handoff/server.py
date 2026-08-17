@@ -13,7 +13,7 @@ except ImportError:  # pragma: no cover
 
 from . import terminals
 from . import __version__
-from .config import ConfigError, Profile, load, resolve
+from .config import ConfigError, Profile, load, preferred_terminal, resolve
 
 CLI = os.environ.get("CC_HANDOFF_CLI", "claude")
 TIMEOUT = int(os.environ.get("CC_HANDOFF_TIMEOUT", "600"))
@@ -42,6 +42,10 @@ def _profile(name: str | None) -> Profile:
         return resolve(name)
     except ConfigError as e:
         raise RuntimeError(str(e)) from e
+
+
+def _terminal(explicit: str | None) -> str | None:
+    return explicit or preferred_terminal()
 
 
 @server.tool()
@@ -135,7 +139,7 @@ def handoff_to_terminal(
     prof = _profile(profile)
     try:
         name, argv = terminals.spawn(
-            prof.path, [_cli(), "--resume", session_id], terminal
+            prof.path, [_cli(), "--resume", session_id], _terminal(terminal)
         )
     except terminals.TerminalError as e:
         raise RuntimeError(str(e)) from e
@@ -154,23 +158,45 @@ def open_in_claude_code(
     brief: str,
     profile: str | None = None,
     terminal: str | None = None,
+    new_window: bool = False,
 ) -> dict:
     """Write a brief to <profile>/.claude/HANDOFF.md and open Claude Code there.
 
     Use for work the user should drive themselves. The brief is written verbatim;
     it is never passed through a shell.
+
+    If a session is already open in that profile, no second window is opened —
+    tell the user to switch to it and say "reread HANDOFF.md". Pass new_window
+    to open one anyway.
     """
     prof = _profile(profile)
     handoff = prof.path / ".claude" / "HANDOFF.md"
     handoff.parent.mkdir(parents=True, exist_ok=True)
     handoff.write_text(brief, encoding="utf-8")
 
+    if not new_window:
+        open_pids = terminals.sessions_in(prof.path, CLI)
+        if open_pids:
+            return {
+                "profile": prof.name,
+                "cwd": str(prof.path),
+                "handoff_file": str(handoff),
+                "bytes_written": len(brief.encode("utf-8")),
+                "opened_window": False,
+                "existing_sessions": open_pids,
+                "next_step": (
+                    f"A Claude Code session is already open in {prof.name!r}. "
+                    "Tell the user to switch to that window and say "
+                    "'reread .claude/HANDOFF.md' rather than opening another one."
+                ),
+            }
+
     kickoff = (
         f"Read {handoff.relative_to(prof.path)} and carry out what it asks. "
         "It was written by a Claude Desktop chat handing this work to you."
     )
     try:
-        name, argv = terminals.spawn(prof.path, [_cli(), kickoff], terminal)
+        name, argv = terminals.spawn(prof.path, [_cli(), kickoff], _terminal(terminal))
     except terminals.TerminalError as e:
         raise RuntimeError(f"wrote {handoff}, but could not open a terminal: {e}") from e
 
@@ -179,6 +205,7 @@ def open_in_claude_code(
         "cwd": str(prof.path),
         "handoff_file": str(handoff),
         "bytes_written": len(brief.encode("utf-8")),
+        "opened_window": True,
         "terminal": name,
         "tested_terminal": name in terminals.TESTED,
     }
