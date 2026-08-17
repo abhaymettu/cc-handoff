@@ -8,9 +8,13 @@ This installs a local MCP server for Claude Desktop. It is macOS only.
 ## 1. Check the prerequisites
 
 ```sh
-python3 --version          # need 3.10 or newer
-which claude               # the Claude Code CLI must be on PATH
+python3 --version                  # need 3.10 or newer
+command -v claude || echo MISSING  # the Claude Code CLI must be on PATH
 ```
+
+Do not use `which claude`. Many people wrap it in a shell function, and `which` prints
+the function body rather than a path, which is easy to misread in both directions. The
+authoritative check is `doctor` in step 6.
 
 If `claude` is missing, stop and tell the user to install Claude Code first. Nothing else
 here will work without it.
@@ -66,7 +70,8 @@ verified, the rest are written from documented flags and have never been run.
 ```
 
 Then open `~/.config/cc-handoff/config.toml` and delete the profiles they did not want.
-That file is meant to be hand-edited. Re-running `setup` will not overwrite it.
+That file is meant to be hand-edited. Re-running `setup` keeps the profile entries, but
+it rewrites the file, so comments and unknown keys do not survive. Tell the user that.
 
 Use `--terminal <name>` if their answer differed from what was detected.
 
@@ -81,10 +86,12 @@ non-zero if anything fatal failed. Common failures:
 
 | Failure | Fix |
 |---|---|
-| `mcp package` | `.venv/bin/pip install mcp` |
+| `mcp package` | `.venv/bin/pip install 'mcp>=2'` |
+| `server builds` | usually mcp 1.x; run `.venv/bin/pip install 'mcp>=2'` |
+| `terminal` not installed | the .app exists but its CLI does not; pick another with `--terminal` |
 | `claude CLI` not on PATH | install Claude Code, or set `CC_HANDOFF_CLI` |
 | `profile paths` missing | a path in the config no longer exists, edit the file |
-| `Claude Desktop` not registered | re-run step 5 without `--no-register` |
+| `Claude Desktop` not registered | re-run step 5; do not pass `--no-register` |
 | Desktop points at another interpreter | re-run step 5 from this venv |
 
 ## 7. Hand back

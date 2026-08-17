@@ -17,8 +17,8 @@ Everyone organises these differently, so `setup` reads three layers rather than 
 one convention:
 
 1. **Names you already chose.** If your shell rc defines a `CLAUDE_PROFILES` map, those
-   names and paths are used as-is and sorted to the top. Nobody has to adopt anyone
-   else's naming scheme.
+   names and paths are used as-is and always survive `--limit`. Nobody has to adopt
+   anyone else's naming scheme. The written list is alphabetical, not ranked.
 2. **Where you actually work.** `~/.claude.json` records every directory you have run
    Claude Code in and when, so the list is ranked by real use rather than by guesswork.
    Worktrees, temp dirs, and `$HOME` are filtered out.
@@ -43,7 +43,7 @@ git clone https://github.com/abhaymettu/cc-handoff
 cd cc-handoff
 python3 -m venv .venv && .venv/bin/pip install -e .
 .venv/bin/python -m cc_handoff setup --dry-run    # see the plan first
-.venv/bin/python -m cc_handoff setup --default scratch
+.venv/bin/python -m cc_handoff setup --default <one of your profiles>
 .venv/bin/python -m cc_handoff doctor             # confirm it works
 ```
 
@@ -52,9 +52,10 @@ it, writes `~/.config/cc-handoff/config.toml`, and registers itself in
 `claude_desktop_config.json` (backing up whatever was there). Restart Claude Desktop
 afterward.
 
-Re-running `setup` never destroys a config you have edited: it keeps the profiles already
-in the file and only refreshes the terminal and default. Pass `--rescan` to look for new
-profiles, which adds but never drops.
+Re-running `setup` keeps every profile already in the file and only refreshes the
+terminal and default. Pass `--rescan` to look for new profiles, which adds but never
+drops. The file is rewritten rather than patched, so comments and any keys cc-handoff
+does not know about are lost; keep notes elsewhere.
 
 It over-collects on purpose. Open the toml and delete what you do not want:
 
@@ -66,7 +67,8 @@ brain   = "/Users/you/Documents/Brain"
 scratch = "/Users/you/scratch"
 ```
 
-Other commands: `cc_handoff profiles`, `cc_handoff terminals`, `cc_handoff doctor`.
+Other commands: `cc-handoff profiles`, `cc-handoff terminals`, `cc-handoff doctor`.
+The console script is `cc-handoff`; `python -m cc_handoff` is equivalent.
 
 `setup --dry-run` prints the plan and writes nothing. Add `--json` to either `setup` or
 `doctor` for machine-readable output, which is what an agent driving the install uses.
@@ -97,17 +99,23 @@ headless call can be continued into an unrestricted session, so do not treat
 
 ## Terminals
 
-| Terminal | Status |
-|---|---|
-| Ghostty | tested |
-| Terminal.app | tested |
-| kitty | untested |
-| WezTerm | untested |
-| Alacritty | untested |
-| iTerm2 | untested |
+| Terminal | Status | How it launches |
+|---|---|---|
+| Ghostty | tested | `open -na` |
+| Terminal.app | tested | AppleScript |
+| iTerm2 | untested | AppleScript |
+| kitty | untested | needs its CLI |
+| WezTerm | untested | needs its CLI |
+| Alacritty | untested | needs its CLI |
 
-Untested recipes are written from each emulator's documented flags but have never been
-run. If one fails, that is a bug worth reporting.
+Untested means never run, not "probably works". Expect the three that need a CLI to
+fail unless you have installed it: kitty, WezTerm and Alacritty ship their command
+line tool inside the .app bundle and do not put it on `PATH` on their own. cc-handoff
+looks on `PATH` first and then inside the bundle, and refuses to select a terminal it
+cannot actually launch, so the failure is an error message rather than a hang.
+
+Auto-selection prefers tested recipes. An untested one is only chosen if it is the
+terminal you are currently running in, or if nothing tested is installed.
 
 `setup` picks your terminal once and writes it to the config, so it is a decision you can
 see and edit rather than a guess made on every call. Selection order at runtime: the
@@ -135,13 +143,20 @@ restoring an old session. Reusing an already-running instance is not possible. P
 
 ## Quoting
 
-Briefs and prompts never meet a shell. Commands are built as argv lists and run with
-`shell=False`; the brief is written with `Path.write_text`. `tests/quoting_probe.py`
-pushes quotes, backticks, `$(whoami)`, newlines, and AppleScript injection bait through
-the wire and asserts the file on disk is byte-identical.
+The brief never meets a shell. It is written with `Path.write_text` and never enters an
+argv. Commands are built as argv lists and run with `shell=False` for four of the six
+terminals; iTerm2 and Terminal.app are the exception, see below. 
 
-iTerm2 and Terminal.app are the one exception: AppleScript only accepts a command
-string, so those recipes go through `shlex.quote` and then AppleScript escaping.
+iTerm2 and Terminal.app are the exception: AppleScript takes a command string, not an
+argv, so those recipes build `cd <dir> && <command>` with `shlex.quote` and then escape
+the result for the AppleScript literal. That string is run by a shell.
+
+`tests/quoting_probe.py` covers both halves. It pushes a hostile brief through the wire
+and asserts the file on disk is byte identical, then takes ten hostile arguments,
+including newlines, quotes, backslashes and AppleScript injection bait, generates the
+real Terminal.app script, compiles it with `osascript`, and asserts the command comes
+back unchanged. Reverting the escaper to a version that does not handle newlines makes
+the probe fail, which is the point.
 
 ## Environment
 
@@ -151,6 +166,7 @@ string, so those recipes go through `shlex.quote` and then AppleScript escaping.
 | `CC_HANDOFF_CONFIG` | `~/.config/cc-handoff/config.toml` |
 | `CC_HANDOFF_TERMINAL` | auto-detected |
 | `CC_HANDOFF_TIMEOUT` | `600` |
+| `CC_HANDOFF_DRY_RUN` | unset; when set, terminal launches return the argv instead of opening a window |
 
 Pointing `CC_HANDOFF_CLI` at another agent CLI mostly works, as long as it accepts
 `-p` and `--resume`.
@@ -158,10 +174,14 @@ Pointing `CC_HANDOFF_CLI` at another agent CLI mostly works, as long as it accep
 ## Tests
 
 ```sh
-.venv/bin/python tests/stdio_probe.py     # MCP protocol over a real pipe
-.venv/bin/python tests/quoting_probe.py   # hostile brief, byte-identical on disk
-.venv/bin/python tests/e2e_probe.py       # ask -> handoff; spends real tokens
+.venv/bin/python tests/run_all.py              # protocol and quoting
+.venv/bin/python tests/run_all.py --with-e2e   # adds ask -> handoff, spends real tokens
 ```
+
+Individually: `stdio_probe.py` does a real MCP handshake over a pipe to a subprocess,
+`quoting_probe.py` covers the brief and the AppleScript escaping, and `e2e_probe.py`
+runs a headless prompt and hands the session to a terminal. Only the last one costs
+anything.
 
 ## Relation to other projects
 
@@ -173,20 +193,23 @@ The closest existing thing is [steipete/claude-code-mcp](https://github.com/stei
 one-shot delegation. If all you want is "let my MCP client run a Claude Code prompt",
 use that. It is mature and widely used.
 
-cc-handoff is aimed at a different problem, and differs in three ways that matter:
+That server is not one-shot: its `claude_code` tool takes a `sessionId`, and repeated
+calls with the same id resume the same session. Session continuity is not the
+difference. The differences are:
 
-- **Session continuity.** The point here is that a headless answer can be reopened on
-  your screen with its history intact, via `--resume`. One-shot delegation has no
-  equivalent; the work ends when the call returns.
+- **Handing a session to a human.** cc-handoff opens the session in a real terminal
+  window with its history intact, so you stop being the relay between a chat box and
+  your own machine. That is the whole reason this exists.
 - **Profile routing.** Work is addressed to a named directory rather than a path
-  supplied per call, so "which agent" is a first-class argument and unlisted directories
-  cannot be reached at all.
-- **Permission default.** `allow_edits` is false unless asked for. steipete's server
-  historically starts Claude Code with `--dangerously-skip-permissions` by default
-  (configurable via `permissionMode`).
+  supplied per call, so "which agent" is a first-class argument and directories not in
+  your config cannot be reached at all.
+- **Permission default.** `allow_edits` is false unless asked for. That server defaults
+  to `bypassPermissions` for backwards compatibility, with a `permissionMode` argument
+  to opt out.
 
-It is also Python rather than JavaScript, and macOS-only, where that server is
-cross-platform.
+It is also Python rather than JavaScript, and macOS only, where that server is
+cross-platform. If you want a mature, cross-platform way to run a Claude Code prompt
+from an MCP client, use theirs.
 
 ## Requirements
 
