@@ -151,6 +151,31 @@ Pointing `CC_HANDOFF_CLI` at another agent CLI mostly works, as long as it accep
 .venv/bin/python tests/e2e_probe.py       # ask -> handoff; spends real tokens
 ```
 
+## Relation to other projects
+
+This is not a fork. It shares no code with any other project and was written from
+scratch.
+
+The closest existing thing is [steipete/claude-code-mcp](https://github.com/steipete/claude-code-mcp)
+(JavaScript, MIT), which wraps the Claude Code CLI in a single `claude_code` tool for
+one-shot delegation. If all you want is "let my MCP client run a Claude Code prompt",
+use that — it is mature and widely used.
+
+cc-handoff is aimed at a different problem, and differs in three ways that matter:
+
+- **Session continuity.** The point here is that a headless answer can be reopened on
+  your screen with its history intact, via `--resume`. One-shot delegation has no
+  equivalent; the work ends when the call returns.
+- **Profile routing.** Work is addressed to a named directory rather than a path
+  supplied per call, so "which agent" is a first-class argument and unlisted directories
+  cannot be reached at all.
+- **Permission default.** `allow_edits` is false unless asked for. steipete's server
+  historically starts Claude Code with `--dangerously-skip-permissions` by default
+  (configurable via `permissionMode`).
+
+It is also Python rather than JavaScript, and macOS-only, where that server is
+cross-platform.
+
 ## Requirements
 
 macOS, Python 3.10+, `mcp` (2.x or 1.x — the import is version-guarded), and the
