@@ -103,23 +103,91 @@ def _walk(root: Path, depth: int):
                 stack.append((e, level + 1))
 
 
-def discover(roots: list[Path] | None = None, depth: int = SCAN_DEPTH) -> list[Profile]:
-    """Every directory holding a CLAUDE.md is a profile. Nearest match wins a name collision."""
-    found: dict[Path, Profile] = {}
+CLAUDE_JSON = HOME / ".claude.json"
+
+_TEMP_HINTS = ("/private/tmp/", "/var/folders/", "/tmp/", "/.claude/worktrees/")
+
+_SHELL_RC = [
+    HOME / ".zshrc", HOME / ".bashrc", HOME / ".bash_profile",
+    HOME / ".profile", HOME / ".config" / "zsh" / ".zshrc",
+]
+
+_PROFILE_ARRAY = re.compile(r"CLAUDE_PROFILES\s*=\s*\((.*?)\)", re.DOTALL)
+_PAIR = re.compile(r"""(\w[\w-]*)\s+["']?([^"'\s][^"'\n]*?)["']?\s*(?=\n|$)""")
+
+
+def from_shell() -> dict[str, Path]:
+    """Names the user already picked, if they keep a CLAUDE_PROFILES map in a shell rc."""
+    out: dict[str, Path] = {}
+    for rc in _SHELL_RC:
+        try:
+            text = rc.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        m = _PROFILE_ARRAY.search(text)
+        if not m:
+            continue
+        for name, raw in _PAIR.findall(m.group(1)):
+            p = Path(os.path.expandvars(raw.strip())).expanduser()
+            if p.is_dir():
+                out.setdefault(name, p)
+    return out
+
+
+def from_usage() -> dict[Path, float]:
+    """Directories the user actually runs Claude Code in, keyed to when they last did."""
+    try:
+        data = json.loads(CLAUDE_JSON.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    out: dict[Path, float] = {}
+    for raw, meta in (data.get("projects") or {}).items():
+        if any(h in raw.rstrip("/") + "/" for h in _TEMP_HINTS):
+            continue
+        p = Path(raw)
+        if p == HOME or not p.is_dir():
+            continue
+        out[p] = float((meta or {}).get("lastStartTime") or 0)
+    return out
+
+
+def discover(roots: list[Path] | None = None, depth: int = SCAN_DEPTH,
+             limit: int | None = None) -> list[Profile]:
+    """Find the user's agents however they happen to organise them.
+
+    Three layers, most personal first. A CLAUDE_PROFILES map in a shell rc gives names
+    they chose themselves. ~/.claude.json says which directories they actually work in,
+    and when. A filesystem scan catches whatever is left. A profile is still a directory
+    with its own CLAUDE.md; these layers decide which ones matter and what to call them.
+    """
+    named = from_shell()
+    used = from_usage()
+
+    ranked: dict[Path, float] = {}
+    for p in named.values():
+        if (p / MARKER).is_file():
+            ranked[p] = used.get(p, 0.0) + 1e15  # a name they chose outranks everything
+    for p, when in used.items():
+        if (p / MARKER).is_file():
+            ranked.setdefault(p, when)
     for root in roots if roots is not None else SCAN_ROOTS:
         for d in _walk(root.expanduser(), depth):
-            if d not in found:
-                found[d] = Profile(_slug(d.name), d, _gist(d / MARKER))
+            ranked.setdefault(d, used.get(d, 0.0))
+
+    preferred = {v: k for k, v in named.items()}
+    ordered = sorted(ranked, key=lambda p: (-ranked[p], str(p)))
+    if limit:
+        ordered = ordered[:limit]
 
     by_name: dict[str, Profile] = {}
-    for prof in sorted(found.values(), key=lambda p: (len(p.path.parts), str(p.path))):
-        name = prof.name
+    for path in ordered:
+        name = preferred.get(path) or _slug(path.name)
         if name in by_name:
-            name = _slug(f"{prof.path.parent.name}-{prof.name}")
+            name = _slug(f"{path.parent.name}-{name}")
             n = 2
             while name in by_name:
-                name, n = f"{prof.name}-{n}", n + 1
-        by_name[name] = Profile(name, prof.path, prof.gist)
+                name, n = f"{_slug(path.name)}-{n}", n + 1
+        by_name[name] = Profile(name, path, _gist(path / MARKER))
     return sorted(by_name.values(), key=lambda p: p.name)
 
 

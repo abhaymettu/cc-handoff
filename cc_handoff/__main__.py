@@ -23,7 +23,7 @@ def _setup(args: argparse.Namespace) -> int:
             print(f"  {p.name:26} {p.path}")
         print("(pass --rescan to look for new ones)")
     else:
-        found = config.discover()
+        found = config.discover(limit=args.limit)
         if not found and not existing:
             print("No directories with a CLAUDE.md found. Nothing to configure.",
                   file=sys.stderr)
@@ -109,6 +109,8 @@ def main(argv: list[str] | None = None) -> int:
     s.add_argument("--terminal", help="pin a terminal instead of detecting one")
     s.add_argument("--rescan", action="store_true",
                    help="look for new profiles; never drops ones you kept")
+    s.add_argument("--limit", type=int, default=12,
+                   help="how many profiles to keep, most-used first (default 12)")
     s.add_argument("--no-register", action="store_true", help="write the config only")
     s.set_defaults(func=_setup)
 

@@ -13,6 +13,20 @@ A profile is a directory containing a `CLAUDE.md`. That is the whole definition.
 one has its own instructions and its own folder-scoped memory, so "which profile" is
 really "which agent".
 
+Everyone organises these differently, so `setup` reads three layers rather than assuming
+one convention:
+
+1. **Names you already chose.** If your shell rc defines a `CLAUDE_PROFILES` map, those
+   names and paths are used as-is and sorted to the top. Nobody has to adopt anyone
+   else's naming scheme.
+2. **Where you actually work.** `~/.claude.json` records every directory you have run
+   Claude Code in and when, so the list is ranked by real use rather than by guesswork.
+   Worktrees, temp dirs, and `$HOME` are filtered out.
+3. **A filesystem scan**, for a machine with no history yet.
+
+Each layer degrades to the next, so a fresh install with no conventions at all still
+produces a sensible list. `--limit` caps how many are kept (12 by default).
+
 Every tool runs inside a named profile. There is no free-form path parameter — a
 directory that is not in your config cannot be touched.
 
