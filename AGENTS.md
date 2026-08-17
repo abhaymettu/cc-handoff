@@ -34,12 +34,12 @@ Use the venv interpreter for every command below. Do not install into system Pyt
 
 This writes nothing. It returns the full plan as JSON:
 
-- `profiles` — the directories it proposes, each with `name`, `path`, `gist`, `exists`,
+- `profiles`, the directories it proposes, each with `name`, `path`, `gist`, `exists`,
   and `new`
-- `profile_source` — whether these were discovered or kept from a config already present
+- `profile_source`, whether these were discovered or kept from a config already present
 - `default_profile` and `default_valid`
 - `terminal` and `terminal_tested`
-- `desktop_config` — where Claude Desktop's config lives and whether cc-handoff is in it
+- `desktop_config`, where Claude Desktop's config lives and whether cc-handoff is in it
 
 If `profiles` is empty, the user has no directories with a `CLAUDE.md`. Tell them that a
 profile is just a directory with its own `CLAUDE.md`, and that they should create one
