@@ -135,7 +135,9 @@ def applescript_escaping_holds() -> bool:
             command = ["claude", "--resume", arg]
             argv = terminals._argv(name, cwd, command)
 
-            if argv[0] != "osascript" or len(argv) != 3:
+            # argv may be proxied through claude-helper, which holds the TCC
+            # grants; either shape must end with ["osascript", "-e", script].
+            if argv[-3:-2] != ["osascript"] or argv[-2] != "-e":
                 print(f"  FAIL {name}: unexpected argv shape {argv[:2]}")
                 ok = False
                 continue

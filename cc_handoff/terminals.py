@@ -196,6 +196,12 @@ def _argv(name: str, cwd: Path, command: list[str]) -> list[str]:
                 f"  do script {_osa_quote(line)}\n"
                 "end tell"
             )
+        # Proxied through ClaudeHelper.app when installed: `do script` is an
+        # Apple Event, so TCC pins the grant to whatever binary sends it, and
+        # every claude/python update would revoke it. See ~/Desktop/Playground/tcc-helper.
+        helper = os.path.expanduser("~/.local/bin/claude-helper")
+        if os.path.exists(helper):
+            return [helper, "osascript", "-e", script]
         return ["osascript", "-e", script]
 
     raise TerminalError(f"unknown terminal {name!r}")
